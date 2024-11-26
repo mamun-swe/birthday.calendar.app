@@ -1,0 +1,60 @@
+version: '3.7'
+
+volumes:
+  birthday-calendar-app-mysql-data:
+    name: birthday-calendar-app-mysql-data
+
+services:
+  birthday-calendar-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: birthday-calendar-app-image
+    container_name: birthday-calendar-app-container
+    ports:
+      - "8090:8090"
+    depends_on:
+      birthday-calendar-app-mysqldb:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://birthday-calendar-app-mysqldb:3306/${MYSQL_DATABASE}
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
+    networks:
+      - birthday-calendar-app-network
+
+  birthday-calendar-app-mysqldb:
+    image: mysql:latest
+    container_name: birthday-calendar-app-db-container
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - birthday-calendar-app-mysql-data:/var/lib/mysql
+    networks:
+      - birthday-calendar-app-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "birthday-calendar-app-mysqldb" ]
+      retries: 10
+      interval: 3s
+      timeout: 30s
+
+  birthday-calendar-app-phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: birthday-calendar-app-phpmyadmin
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: birthday-calendar-app-mysqldb
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      UPLOAD_LIMIT: 300M
+    networks:
+      - birthday-calendar-app-network
+
+networks:
+  birthday-calendar-app-network:
+    name: birthday-calendar-app-network
